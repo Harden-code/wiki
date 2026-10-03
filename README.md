@@ -269,11 +269,11 @@ cp ~/Downloads/resume.pdf public/files/resume.pdf
 [打开简历 PDF](/files/resume.pdf)
 ```
 
-本地还可以直接打开 `http://localhost:5173/files/resume.pdf`。路径中不包含 `public`，不要写成 `/public/files/resume.pdf`。
+本地还可以直接打开 `http://localhost:5173/wiki/files/resume.pdf`。路径中不包含 `public`，不要写成 `/public/files/resume.pdf`。
 
 这些链接是**网站资源 URL**，不是虚拟文件系统路径，恰好同样叫 `/files` 也属于两套不同的机制。Markdown 阅读窗口使用 DOMPurify 清理 HTML，外链带 `noopener noreferrer`。
 
-如果以后部署到 `/my-blog/` 这样的子路径，需要配置 Vite 的 `base`，并把 Markdown 资源链接改为相应的 `/my-blog/images/...`、`/my-blog/files/...`；当前指南的根路径写法不会自动添加部署前缀。
+项目已配置 Vite `base: '/wiki/'` 用于 GitHub Pages。阅读窗口会自动给 Markdown 中以 `/` 开头的图片和链接添加 `/wiki/` 前缀，因此仍可写 `/images/avatar.png`、`/files/resume.pdf`；已经含 `/wiki/` 的路径不会重复添加，外部链接和锚点不变。若更换仓库名或使用自定义域名根路径，修改 `vite.config.ts` 的 `base` 即可。
 
 **安全提醒：`public/`、`posts/`、`files/` 内容均会公开发布。不要放密码、API token、私钥或隐私材料。**
 
@@ -363,7 +363,7 @@ npm ci
 npm run dev
 ```
 
-若已经位于包含本 README 和 package.json 的目录，跳过 `cd wiki`。浏览器打开终端提示的地址，默认 http://localhost:5173 。
+若已经位于包含本 README 和 package.json 的目录，跳过 `cd wiki`。浏览器打开终端提示的地址，默认 http://localhost:5173/wiki/ 。
 
 ## 检查、构建与预览
 
@@ -375,7 +375,34 @@ npm run preview
 npm audit
 ```
 
-生产构建写入 `dist/`，预览默认 http://localhost:4173 。端口被占用时以 Vite 实际输出为准。
+生产构建写入 `dist/`，预览默认 http://localhost:4173/wiki/ 。端口被占用时以 Vite 实际输出为准。
+
+## GitHub Pages 部署与更新
+
+- 仓库：https://github.com/Harden-code/wiki
+- 网站：https://harden-code.github.io/wiki/
+- 自动部署配置：`.github/workflows/deploy-pages.yml`
+- 部署路径配置：`vite.config.ts` 中的 `base: '/wiki/'`
+
+GitHub 仓库 **Settings → Pages → Build and deployment → Source** 使用 **GitHub Actions**，不要选择源码分支直接发布；浏览器无法直接运行这里的 TypeScript 源码。
+
+每次推送到 `main` 后，Actions 自动运行 `npm ci`、测试、类型检查、生产构建并发布 `dist/`。不需要提交 `dist/`，也不需要创建 `gh-pages` 分支或配置个人访问令牌。
+
+修改博客、附件或首页后，在电脑终端执行：
+
+```bash
+# 在包含 package.json 的实际项目目录中执行
+npm test
+npm run build
+git add src public README.md  # 只添加确实存在且本次需要发布的路径
+# 如果没有 public 目录，改用 git add src README.md
+git commit -m "Update blog content"
+git push origin main
+```
+
+访问仓库 **Actions → Deploy GitHub Pages** 查看构建和部署状态。成功后刷新网站；失败时打开红色步骤查看报错，失败的构建不会更新线上页面。也可在工作流页面通过 **Run workflow** 手动部署 `main`。
+
+GitHub Pages 是公开静态站点，没有服务端写入或数据库。确保要发布的文件不含密码、token、私钥等敏感信息。
 
 ## 依赖与清理
 
@@ -393,4 +420,4 @@ rm -rf dist           # 清理构建产物
 - `more/less` 实现交互分页，`read` 使用安全的 Markdown 阅读窗口，而非直接打印 HTML。
 - 文章由实际 Markdown 文件加载，不再使用脱节的硬编码文章。
 - 修复缺失 xterm CSS、终端高度与自适应、退出后继续输入、异步重复提交、控制序列污染输入等问题。
-- 添加 36 项回归测试，覆盖 README 示例、命令注册、路径、管道、错误输入、文件系统保护、主页配置和文本文件加载。
+- 添加 38 项回归测试，覆盖 README 示例、命令注册、路径、管道、错误输入、文件系统保护、主页配置和文本文件加载。

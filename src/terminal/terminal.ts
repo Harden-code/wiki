@@ -6,6 +6,7 @@ import { makePrompt } from './prompt';
 import { BlogShell } from '../shell/runtime';
 import { renderMarkdown } from '../content/render';
 import { makeWelcome } from '../content/homepage';
+import { resolveAssetPath } from '../content/asset-path';
 
 export function mountTerminal(container: HTMLElement) {
   const shell = new BlogShell();
@@ -48,7 +49,11 @@ export function mountTerminal(container: HTMLElement) {
     close.addEventListener('click', () => article?.close());
     const body = document.createElement('article');
     body.innerHTML = renderMarkdown(markdown);
-    body.querySelectorAll('a').forEach(link => {
+    body.querySelectorAll<HTMLImageElement>('img[src]').forEach(image => {
+      image.setAttribute('src', resolveAssetPath(image.getAttribute('src')!));
+    });
+    body.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(link => {
+      link.setAttribute('href', resolveAssetPath(link.getAttribute('href')!));
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
     });
