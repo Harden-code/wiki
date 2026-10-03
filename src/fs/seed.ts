@@ -1,32 +1,15 @@
-export const seedFiles = [
-  { path: '/about.md', content: '# About\n\nThis will become your personal homepage.' },
-  { path: '/help.md', content: '# Help\n\nUse `help`, `ls`, `cat`, `cd`, `tree`, `read`, `clear`.' },
-  {
-    path: '/posts/hello-world.md',
-    content: '# Hello World\n\nYour first post goes here.\n\n- add tags\n- add images\n- add links',
-  },
-  {
-    path: '/posts/linux-notes.md',
-    content: '# Linux Notes\n\nA blog post can be stored as a file in the virtual filesystem.',
-  },
-];
+import { loadPosts } from '../content/loader';
 
-export const commandSeeds = [
-  { name: 'ls', target: 'ls', description: 'List directory contents' },
-  { name: 'cat', target: 'cat', description: 'Print file contents' },
-  { name: 'head', target: 'head', description: 'Show first lines' },
-  { name: 'tail', target: 'tail', description: 'Show last lines' },
-  { name: 'grep', target: 'grep', description: 'Filter lines by pattern' },
-  { name: 'find', target: 'find', description: 'Find files and directories' },
-  { name: 'tree', target: 'tree', description: 'Show a directory tree' },
-  { name: 'more', target: 'more', description: 'Page through content' },
-  { name: 'less', target: 'less', description: 'Page through content' },
-  { name: 'wc', target: 'wc', description: 'Count lines, words and bytes' },
-  { name: 'clear', target: 'clear', description: 'Clear the terminal screen' },
-  { name: 'exit', target: 'exit', description: 'Exit to homepage' },
-  { name: 'whoami', target: 'whoami', description: 'Print current user name' },
-  { name: 'help', target: 'help', description: 'Show available commands' },
-  { name: 'cd', target: 'cd', description: 'Change current directory' },
-  { name: 'pwd', target: 'pwd', description: 'Print current directory' },
-  { name: 'read', target: 'read', description: 'Open a blog post' },
+const posts = loadPosts();
+// Only text formats are bundled into the virtual filesystem. Binary assets belong in public/.
+const files = import.meta.glob<string>('../content/files/**/*.{txt,md,json,csv,log,yaml,yml}', {
+  eager: true, query: '?raw', import: 'default',
+});
+export const seedFiles = [
+  { path: '/about.md', content: posts.find(post => post.slug === 'about')?.body ?? '# About\n' },
+  { path: '/help.md', content: '# Help\n\nUse `help` to list commands in /bin.\nBrowse the blog with `ls /posts` and `read hello-world`.\nUse `cat /about.md | head -n 3` for pipes.\nUse Space/Enter and q in more/less; b goes backwards in less.\n' },
+  ...posts.map(post => ({ path: `/posts/${post.slug}.md`, content: post.body, mime: 'text/markdown' })),
+  ...Object.entries(files).map(([path, content]) => ({
+    path: path.replace('../content/files/', '/files/'), content,
+  })),
 ];

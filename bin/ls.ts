@@ -1,6 +1,6 @@
-import type { CommandDefinition } from '../types';
-import { ok } from '../shell';
-import { normalizePath } from '../../fs/path';
+import type { CommandDefinition } from '../src/shell/types';
+import { fail, ok } from '../src/shell/shell';
+import { normalizePath } from '../src/fs/path';
 
 export const lsCommand: CommandDefinition = {
   name: 'ls',
@@ -9,7 +9,10 @@ export const lsCommand: CommandDefinition = {
   handler: (ctx, args) => {
     const target = normalizePath(args[0] ?? ctx.cwd, ctx.cwd);
     const entries = ctx.fs.readDir(target);
-    if (!entries) return ok('');
+    if (!entries) {
+      if (!ctx.fs.exists(target)) return fail(`ls: no such file or directory: ${args[0]}`);
+      return ok(target.split('/').pop() ?? target);
+    }
     return ok(
       entries
         .map((entry) => {

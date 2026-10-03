@@ -1,3 +1,5 @@
+import { homepage } from '../content/homepage';
+
 export function makePrompt(cwd: string) {
-  return `guest@terminal-blog:${cwd}$ `;
+  return `${homepage.user}@${homepage.host}:${cwd}$ `;
 }

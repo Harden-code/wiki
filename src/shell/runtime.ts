@@ -1,82 +1,56 @@
 import type { ShellResult } from './types';
 import { normalizePath } from '../fs/path';
 import { VirtualFileSystem } from '../fs/vfs';
-import { seedFiles, commandSeeds } from '../fs/seed';
+import { seedFiles } from '../fs/seed';
+import { commands } from '../../bin';
 import { CommandRegistry, fail, ok } from './shell';
 import { parseCommandLine, tokensToSegments } from './parser';
-import { helpCommand } from './builtins/help';
-import { clearCommand } from './builtins/clear';
-import { lsCommand } from './builtins/ls';
-import { catCommand } from './builtins/cat';
-import { cdCommand } from './builtins/cd';
-import { readCommand } from './builtins/read';
-import { treeCommand } from './builtins/tree';
-import { pwdCommand } from './builtins/pwd';
-import { headCommand } from './builtins/head';
-import { tailCommand } from './builtins/tail';
-import { grepCommand } from './builtins/grep';
-import { findCommand } from './builtins/find';
-import { moreCommand } from './builtins/more';
-import { lessCommand } from './builtins/less';
-import { wcCommand } from './builtins/wc';
-import { exitCommand } from './builtins/exit';
-import { whoamiCommand } from './builtins/whoami';
 
 export class BlogShell {
   readonly fs: VirtualFileSystem;
-  readonly registry: CommandRegistry;
+  readonly registry = new CommandRegistry();
   cwd = '/';
   exited = false;
 
   constructor() {
-    this.fs = new VirtualFileSystem(seedFiles, commandSeeds);
-    this.registry = new CommandRegistry();
-    this.registry.registerMany([
-      helpCommand,
-      clearCommand,
-      lsCommand,
-      catCommand,
-      cdCommand,
-      readCommand,
-      treeCommand,
-      pwdCommand,
-      headCommand,
-      tailCommand,
-      grepCommand,
-      findCommand,
-      moreCommand,
-      lessCommand,
-      wcCommand,
-      exitCommand,
-      whoamiCommand,
-    ]);
+    this.registry.registerMany(commands);
+    this.fs = new VirtualFileSystem(seedFiles, this.registry.list().map(command => ({
+      name: command.name, target: command.name, description: command.description,
+    })));
   }
 
   async run(line: string): Promise<ShellResult> {
-    const tokens = parseCommandLine(line.trim());
-    const segments = tokensToSegments(tokens);
-    if (segments.length === 0) return ok('');
-
-    let stdin = '';
-    let result: ShellResult = ok('');
-
-    for (const segment of segments) {
-      const [name, ...args] = segment;
-      if (!name) continue;
-      const command = this.registry.get(name);
-      if (!command) return fail(`command not found: ${name}`, 127);
-
-      result = await command.handler({ cwd: this.cwd, argv: [name, ...args], stdin, fs: this.fs }, args);
-      stdin = result.stdout;
-      if (name === 'cd' && result.exitCode === 0 && result.stdout) this.cwd = normalizePath(result.stdout, this.cwd);
-      if (name === 'exit' && result.exitCode === 0) this.exited = true;
-      if (result.exitCode && result.exitCode !== 0) return result;
+    if (this.exited) return fail('Session exited. Reload page to enter again.');
+    try {
+      const segments = tokensToSegments(parseCommandLine(line));
+      let stdin = '';
+      let result = ok();
+      for (const segment of segments) {
+        const [inputName, ...args] = segment;
+        if (!inputName) continue;
+        const name = inputName.includes('/')
+          ? this.fs.getCommandTarget(normalizePath(inputName, this.cwd))
+          : inputName;
+        const command = name ? this.registry.get(name) : undefined;
+        if (!command) return fail(`command not found: ${inputName}`, 127);
+        result = await command.handler({
+          cwd: this.cwd, argv: [inputName, ...args], stdin, fs: this.fs,
+          commands: this.registry.list(), piped: segments.length > 1,
+        }, args);
+        if (result.exitCode) return result;
+        if (result.cwd !== undefined) this.chdir(result.cwd);
+        if (result.exit) this.exited = true;
+        stdin = result.stdout;
+      }
+      return result;
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : String(error), 2);
     }
-
-    return result;
   }
 
   chdir(target: string) {
-    this.cwd = normalizePath(target, this.cwd);
+    const next = normalizePath(target, this.cwd);
+    if (this.fs.readDir(next) === null) throw new Error(`cd: not a directory: ${target}`);
+    this.cwd = next;
   }
 }

@@ -1,3 +1,5 @@
+import { normalizePath } from './path';
+
 export type VfsNode =
   | { type: 'dir'; name: string; children: Map<string, VfsNode> }
   | { type: 'file'; name: string; content: string; mime?: string }
@@ -24,6 +26,7 @@ export class VirtualFileSystem {
         node = existing;
         continue;
       }
+      if (existing) throw new Error(`not a directory: ${part}`);
       const next: Extract<VfsNode, { type: 'dir' }> = { type: 'dir', name: part, children: new Map() };
       node.children.set(part, next);
       node = next;
@@ -49,6 +52,7 @@ export class VirtualFileSystem {
         continue;
       }
 
+      if (existing) throw new Error(`not a directory: ${part}`);
       const next: Extract<VfsNode, { type: 'dir' }> = { type: 'dir', name: part, children: new Map() };
       node.children.set(part, next);
       node = next;
@@ -72,6 +76,7 @@ export class VirtualFileSystem {
         node = existing;
         continue;
       }
+      if (existing) throw new Error(`not a directory: ${part}`);
       const next: Extract<VfsNode, { type: 'dir' }> = { type: 'dir', name: part, children: new Map() };
       node.children.set(part, next);
       node = next;
@@ -101,8 +106,7 @@ export class VirtualFileSystem {
   }
 
   private normalize(path: string) {
-    if (path === '/') return '/';
-    return '/' + path.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+/g, '/').replace(/\/+$/g, '');
+    return normalizePath(path.replace(/\\/g, '/'));
   }
 
   private getNode(path: string) {

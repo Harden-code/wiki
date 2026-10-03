@@ -1,5 +1,5 @@
-import type { CommandDefinition } from '../types';
-import { ok } from '../shell';
+import type { CommandDefinition } from '../src/shell/types';
+import { ok } from '../src/shell/shell';
 
 export const pwdCommand: CommandDefinition = {
   name: 'pwd',

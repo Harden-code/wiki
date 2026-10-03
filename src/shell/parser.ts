@@ -1,75 +1,54 @@
-export type Token =
-  | { type: 'word'; value: string }
-  | { type: 'pipe' };
+export type Token = { type: 'word'; value: string } | { type: 'pipe' };
 
 export function parseCommandLine(input: string): Token[] {
   const tokens: Token[] = [];
   let current = '';
-  let quote: 'single' | 'double' | null = null;
-
+  let started = false;
+  let quote: "'" | '"' | null = null;
   const pushWord = () => {
-    if (current.length > 0) {
-      tokens.push({ type: 'word', value: current });
-      current = '';
-    }
+    if (started) tokens.push({ type: 'word', value: current });
+    current = '';
+    started = false;
   };
-
   for (let i = 0; i < input.length; i++) {
-    const ch = input[i];
-
-    if (quote === 'single') {
-      if (ch === "'") quote = null;
+    const ch = input[i]!;
+    if (ch === '\\' && quote !== "'") {
+      const next = input[++i];
+      if (next === undefined) throw new Error('syntax error: trailing escape');
+      current += next;
+      started = true;
+    } else if (quote) {
+      if (ch === quote) quote = null;
       else current += ch;
-      continue;
-    }
-
-    if (quote === 'double') {
-      if (ch === '"') quote = null;
-      else current += ch;
-      continue;
-    }
-
-    if (ch === ' ') {
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+      started = true;
+    } else if (/\s/.test(ch)) {
       pushWord();
-      continue;
-    }
-
-    if (ch === '|') {
+    } else if (ch === '|') {
       pushWord();
       tokens.push({ type: 'pipe' });
-      continue;
+    } else {
+      current += ch;
+      started = true;
     }
-
-    if (ch === "'") {
-      quote = 'single';
-      continue;
-    }
-
-    if (ch === '"') {
-      quote = 'double';
-      continue;
-    }
-
-    current += ch;
   }
-
+  if (quote) throw new Error('syntax error: unclosed quote');
   pushWord();
   return tokens;
 }
 
-export function tokensToSegments(tokens: Token[]) {
+export function tokensToSegments(tokens: Token[]): string[][] {
   const segments: string[][] = [];
   let current: string[] = [];
-
   for (const token of tokens) {
     if (token.type === 'pipe') {
-      if (current.length) segments.push(current);
+      if (!current.length) throw new Error('syntax error: empty pipeline segment');
+      segments.push(current);
       current = [];
-      continue;
-    }
-    current.push(token.value);
+    } else current.push(token.value);
   }
-
+  if (tokens.length && !current.length) throw new Error('syntax error: trailing pipe');
   if (current.length) segments.push(current);
   return segments;
 }
